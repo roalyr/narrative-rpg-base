@@ -20,6 +20,15 @@ strings = {
 
 windows = {}
 panels = {}
+buffer = []
+
+# TEST
+test_text_ = "There are many variations of passages of Lorem Ipsum available, but the majority have suffered alteration in some form, by injected humour, or randomised words which don't look even slightly believable. If you are going to use a passage of Lorem Ipsum, you need to be sure there isn't anything embarrassing hidden in the middle of text. All the Lorem Ipsum generators on the Internet tend to repeat predefined chunks as necessary, making this the first true generator on the Internet."
+test_text = "There are many variations of passages of Lorem Ipsum available"
+
+# Split current page string into characters.
+for c in test_text_:
+	buffer.append(c)
 
 # Main window serves as a background, doesn't hold
 # any text aside, maybe, from header and footer.
@@ -37,7 +46,6 @@ def update_win_text_main(stdscr, win_text_main):
 	win_text_main.clear()
 	win_text_main.attron(curses.color_pair(2))
 	win_text_main.border()
-	win_text_main.addstr(0, width_text_main // 2 - len(strings["test_string"]) // 2, strings["test_string"])
 	# String insertion placeholder.
 	win_text_main.noutrefresh()
 
@@ -73,24 +81,24 @@ def move_cursor(win_text, x, y, init_x, init_y, max_x, max_y):
 	win_text.move(x,y)
 	return x, y
 	
+def render_buffer(win_text, init_x, init_y, max_x, max_y, x, y):
+	# Fit buffer onto the window within limitations.
+	for index, c in enumerate(buffer):
+		ix = index // max_y + init_x
+		iy = index % max_y + init_y
+		if ix < max_x+1 and iy < max_y+1:
+			# If the window is smaller - prevent crashing.
+			try: win_text.addstr(ix, iy, c)
+			except: pass
+			# Reset cursor back to initial position.
+			x, y = move_cursor(win_text, x, y, init_x, init_y, max_x, max_y)
+	
 def write_text(stdscr, win_text):
-	
-	test_text_ = "There are many variations of passages of Lorem Ipsum available, but the majority have suffered alteration in some form, by injected humour, or randomised words which don't look even slightly believable. If you are going to use a passage of Lorem Ipsum, you need to be sure there isn't anything embarrassing hidden in the middle of text. All the Lorem Ipsum generators on the Internet tend to repeat predefined chunks as necessary, making this the first true generator on the Internet. It uses a dictionary of over 200 Latin words, combined with a handful of model sentence structures, to generate Lorem Ipsum which looks reasonable. The generated Lorem Ipsum is therefore always free from repetition, injected humour, or non-characteristic words etc."
-	test_text = "There are many variations of passages of Lorem Ipsum available"
-	
-	buffer = []
-	
-	# Split string into characters.
-	for c in test_text:
-		buffer.append(c)
-	
-	
-	
 	# Start cursor.
 	stdscr.timeout(-1)
 	curses.curs_set(True)
-	max_x = height_main - 4
-	max_y = width_main -4
+	max_x = height_text_main
+	max_y = width_text_main
 	max_x -= 2
 	max_y -= 2
 	init_x = 1
@@ -98,10 +106,15 @@ def write_text(stdscr, win_text):
 	x = init_x
 	y = init_y
 	win_text.move(init_x, init_y)
+	
+	# Render text initially (from loaded byffer page).
+	render_buffer(win_text, init_x, init_y, max_x, max_y, x, y)
+	
+	# Refresh window after input.
+	curses.panel.update_panels() # Must be called here.
 	win_text.refresh()
 	
-
-	# Start editing here.
+	# Start editing text..
 	while True:
 		key = stdscr.get_wch()
 		if key == curses.KEY_RIGHT:
@@ -116,41 +129,58 @@ def write_text(stdscr, win_text):
 		elif key == curses.KEY_DOWN:
 			x += 1
 			x,y = move_cursor(win_text, x, y, init_x, init_y, max_x, max_y)
+			
 		elif key in (curses.KEY_ENTER, chr(10), chr(13)):
+			x += 1
+			y = init_y
+			x,y = move_cursor(win_text, x, y, init_x, init_y, max_x, max_y)
+			
+		elif key == "q": # TODO
 			# Refresh window after input.
 			curses.curs_set(False)
 			curses.panel.update_panels()
 			win_text.refresh()
 			break
-	
+			
+		elif key in (curses.KEY_BACKSPACE, chr(127)):
+			index = max_y * (x-1) + (y-1)
+			if (index - 1 > 0) and (index - 1 < len(buffer)):
+				buffer.pop(index - 1)
+			# Update cursor position manually.
+			y -= 1
+			x, y = move_cursor(win_text, x, y, init_x, init_y, max_x, max_y)
+			# Clear the characters in the window after the buffer to prevent trailing.
+			index_last = len(buffer)
+			ix = index_last // max_y + init_x
+			iy = index_last % max_y + init_y
+			# Fill up with space. Restore border in right side.
+			try: win_text.addstr(ix, iy, ' '); win_text.border()
+			except: pass
+
+		# Character insertion within limit.
 		else:
 			if (type(key) is str) and (len(buffer) <= buffer_limit):
 				index = max_y * (x-1) + (y-1)
-				# Insert within existing text.
+				# Insert character within existing text.
 				if index <= len(buffer):
 					buffer.insert(index, key)
-				# Otherwise add spaces after the last character.
+				# Otherwise add spaces after the last character first.
+				# This is needed to fill up space in buffer list.
 				else:
 					d = index - len(buffer)
 					for i in range(d):
 						buffer.append(' ')
 					buffer.insert(index, key)
-			
 				# Update cursor position manually.
 				y += 1
 				x, y = move_cursor(win_text, x, y, init_x, init_y, max_x, max_y)
-			
-		# Fit buffer onto the window within limitations.
-		for index, c in enumerate(buffer):
-			ix = index // max_y + init_x
-			iy = index % max_y + init_y
-			if ix < max_x+1 and iy < max_y+1:
-				win_text.addstr(ix, iy, c)
-				# Reset cursor.
-				x, y = move_cursor(win_text, x, y, init_x, init_y, max_x, max_y)
+			# TODO: add notif. when buffer limit reached.
+		
+		# Render text within the loop as it is edited.
+		render_buffer(win_text, init_x, init_y, max_x, max_y, x, y)
 		
 		# Refresh window after input.
-		curses.panel.update_panels()
+		curses.panel.update_panels() # Must be called here.
 		win_text.refresh()
 
 def main(stdscr):
@@ -201,9 +231,6 @@ def main(stdscr):
 			
 		# Update after input.
 		update_all(stdscr)
-		
-		
-		
 
 # Start the curses application
 curses.wrapper(main)
