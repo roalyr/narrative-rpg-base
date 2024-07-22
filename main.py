@@ -11,7 +11,7 @@ anim_delay = 500
 
 # WINDOW LAYOUT
 # Main window.
-height_main = 24
+height_main = 27
 width_main = 40
 
 # Tab switcher.
@@ -27,20 +27,21 @@ offset_vert_button_tab_switcher = 0
 offset_horiz_button_tab_switcher = 0 # between buttons
 
 # Text editor tab (window).
-height_text_main = 20
-width_text_main = 36
-offset_vert_text_main = 3
-offset_horiz_text_main = 2
+height_tabbed_window = 20
+width_tabbed_window = 36
+offset_vert_tabbed_window = 3
+offset_horiz_tabbed_window = 2
 
 # Text page character limit as defined by window size to avoid scrolling.
-buffer_limit = (height_text_main - 2) * (width_text_main - 2) - 1
+buffer_limit = (height_tabbed_window - 2) * (width_tabbed_window - 2) - 1
 
 ########################################
 
 # CONTENT LOADING
 strings = {
-	"main_title" : "Title",
-	"btn_text_main" : "Text",
+	"main_title" : " Narrative game framework ",
+	"button_text_main" : "Logs",
+	"button_char" : "Char",
 }
 
 ########################################
@@ -49,6 +50,7 @@ strings = {
 windows = {}
 buttons = {}
 panels = {}
+panels_buttons = {}
 buffer = []
 
 ########################################
@@ -63,56 +65,62 @@ for c in test_text_:
 
 ########################################
 
-# WINDOW FUNCTIONS
+# BASIC FUNCTIONS.
 def update_win(stdscr, win, h, w, col, title):
 	win.resize(h, w)
 	win.clear()
 	win.attron(curses.color_pair(col))
 	win.border()
 	if title:
-		win.addstr(0, width_main // 2 - len(title) // 2, title)
+		win.addstr(0, w // 2 - len(title) // 2, title)
 	win.noutrefresh()
 	
-# BUTTONS # TODO: make unified.
-def update_button_tab_main_text(stdscr, button_tab_main_text):
-	button_title = strings["btn_text_main"]
-	button_title_offset = width_button_tab_switcher // 2 - len(button_title) // 2
-	
-	button_tab_main_text.resize(height_button_tab_switcher, width_button_tab_switcher)
-	button_tab_main_text.clear()
-	
+def update_button_tab(stdscr, button, tab, h, w, col, col2, title):
+	button.resize(h, w)
+	button.clear()
 	# Active
-	if not panels["panel_text_main"].hidden():
-		button_tab_main_text.attron(curses.color_pair(2))
-		button_tab_main_text.addstr(1, button_title_offset, button_title + '*')
-		button_tab_main_text.border(0, 0, 0, ' ', 0, 0, curses.ACS_VLINE, curses.ACS_LLCORNER)
-		button_tab_main_text.attroff(curses.color_pair(2))
+	if not tab.hidden():
+		button.attron(curses.color_pair(col2))
+		button.addstr(1, w // 2 - len(title) // 2, title + '*')
+		button.border(0, 0, 0, ' ', 0, 0, curses.ACS_VLINE, curses.ACS_LLCORNER)
+		button.attroff(curses.color_pair(col2))
 	# Inactive
 	else:
-		button_tab_main_text.attron(curses.color_pair(1))
-		button_tab_main_text.addstr(1, button_title_offset, button_title)
-		button_tab_main_text.border()
-		button_tab_main_text.attroff(curses.color_pair(1))
-	
-	button_tab_main_text.noutrefresh()
+		button.attron(curses.color_pair(col))
+		button.addstr(1, w // 2 - len(title) // 2, title)
+		button.border()
+		button.attroff(curses.color_pair(col))
+	button.noutrefresh()
 
-# UPDATE MAIN
-def update_all(stdscr):
-	# Update windows contents and size (queue).
-	stdscr.clear()
-	update_win(stdscr, windows["win_main"], height_main, width_main, 1, strings["main_title"])
-	update_win(stdscr, windows["win_tab_switcher"], height_tab_switcher, width_tab_switcher, 1, '')
-	update_win(stdscr, windows["win_text_main"], height_text_main, width_text_main, 2, '')
-	
-	update_button_tab_main_text(stdscr, buttons["button_tab_main_text"])
-	
-	# Update all at once.
-	curses.panel.update_panels()
-	curses.doupdate()
+def handle_tab_buttons(x, y, stdscr, b, pb, p, result_start, result_stop, custom_function, *args):
+	if is_mouse_click_in_button(x, y, 
+		b.getbegyx()[1] - 0, 
+		b.getbegyx()[0] - 0, 
+		b.getmaxyx()[1] + 0,  
+		b.getmaxyx()[0] + 0, 
+		not pb.hidden()
+	):					
+		# When tab is inactive - activate it.
+		if p.hidden():
+			close_all_tabs()
+			# Modify tab switcher button visibility when tab raised.
+			p.show()
+			pb.show()
+			update_all(stdscr)
+			# Run a function with its own loop.
+			custom_function(*args)
+			# Finish when returning.
+			close_all_tabs()
+			# Return result
+			return result_start
+		# When tab is active - close it.
+		else:
+			close_all_tabs()
+			# Return result
+			return result_stop
+	# If no button pressed - return no result.
+	return ''
 
-########################################
-
-# UI FUNCTIONS
 def move_cursor(win_text, x, y, init_x, init_y, max_x, max_y):
 	# Contain cursor.
 	if x > max_x:
@@ -136,37 +144,10 @@ def move_cursor(win_text, x, y, init_x, init_y, max_x, max_y):
 		win_text.move(y,x)
 	except:
 		pass
-	#win_text.chgat(x, y, 1, curses.A_BLINK | curses.A_UNDERLINE)
-	#win_text.refresh()
 	return x, y
 
 def is_mouse_click_in_button(mouse_x, mouse_y, btn_start_x, btn_start_y, btn_end_x, btn_end_y, btn_visible):
 	return btn_visible and (btn_start_y <= mouse_y < btn_start_y + btn_end_y) and (btn_start_x <= mouse_x < btn_start_x + btn_end_x)
-
-def handle_buttons(x, y, stdscr):
-	# Tab switcher text button.
-	if is_mouse_click_in_button(x, y, 
-		buttons["button_tab_main_text"].getbegyx()[1] - 0, 
-		buttons["button_tab_main_text"].getbegyx()[0] - 0, 
-		buttons["button_tab_main_text"].getmaxyx()[1] + 0,  
-		buttons["button_tab_main_text"].getmaxyx()[0] + 0, 
-		not panels["panel_button_tab_main_text"].hidden()):
-		
-		if panels["panel_text_main"].hidden():
-			panels["panel_text_main"].show()
-			# Modify tab switcher button visibility when raised.
-			panels["panel_button_tab_main_text"].show()
-			update_all(stdscr)
-			write_text(stdscr, windows["win_text_main"])
-			panels["panel_text_main"].hide()
-			return "start_text_edit"
-		else:
-			panels["panel_text_main"].hide()
-			curses.curs_set(False)
-			curses.panel.update_panels()
-			windows["win_text_main"].refresh()
-			return "stop_text_edit"
-					
 
 def render_buffer(win_text, init_x, init_y, max_x, max_y, x, y):
 	# Fit buffer onto the window within limitations.
@@ -179,13 +160,16 @@ def render_buffer(win_text, init_x, init_y, max_x, max_y, x, y):
 			except: pass
 			# Reset cursor back to initial position.
 			x, y = move_cursor(win_text, x, y, init_x, init_y, max_x, max_y)
-	
+
+########################################
+
+# TAB. TEXT PROCESSING
 def write_text(stdscr, win_text):
 	# Start cursor.
 	stdscr.timeout(-1)
 	curses.curs_set(True)
-	max_x = width_text_main
-	max_y = height_text_main
+	max_x = width_tabbed_window
+	max_y = height_tabbed_window
 	max_x -= 2
 	max_y -= 2
 	init_x = 1
@@ -212,8 +196,8 @@ def write_text(stdscr, win_text):
 
 			# Left mouse click on text field, when cursor is shown.
 			if bstate & curses.BUTTON1_CLICKED:
-				lx = mx - offset_vert_text_main + 1
-				ly = my - offset_horiz_text_main - 1
+				lx = mx - offset_vert_tabbed_window + 1
+				ly = my - offset_horiz_tabbed_window - 1
 				x, y = move_cursor(win_text, lx, ly, init_x, init_y, max_x, max_y)
 				
 				# Button handling while text typing.
@@ -221,7 +205,8 @@ def write_text(stdscr, win_text):
 				gy = my
 				result = handle_buttons(gx, gy, stdscr)
 				
-				if result == "stop_text_edit":
+				# Stop editor when closing the tab or switching to other tab.
+				if result in ("stop_text_edit", "start_char"):
 					break 
 		
 		if key == curses.KEY_RIGHT:
@@ -294,68 +279,169 @@ def write_text(stdscr, win_text):
 
 ########################################
 
-# MAIN FUNCTIONS
+# DEFINITIONS: BUTTONS
+def handle_buttons(x, y, stdscr):
+	
+	# Tab switcher text button.
+	result = handle_tab_buttons(x, y, stdscr, 
+		buttons["button_tab_main_text"],
+		panels_buttons["panel_button_tab_main_text"],
+		panels["panel_text_main"],
+		"start_text_edit", "stop_text_edit",
+		# Custom function.
+		write_text, stdscr, windows["win_text_main"]
+	)
+	if result: return result
+	####################
+	
+	# Tab switcher char button.
+	result = handle_tab_buttons(x, y, stdscr, 
+		buttons["button_tab_char"],
+		panels_buttons["panel_button_tab_char"],
+		panels["panel_char"],
+		"start_char", "stop_char",
+		# Custom function.
+		print
+	)
+	if result: return result
+	####################
+	
+	# If no button pressed - return no result.
+	return ''
+
+
+# DEFINITIONS: UPDATES
+def update_all(stdscr):
+	# Update windows contents and size (queue).
+	stdscr.clear()
+	
+	# Windows - add here.
+	update_win(stdscr, windows["win_main"], height_main, width_main, 1, strings["main_title"])
+	update_win(stdscr, windows["win_tab_switcher"], height_tab_switcher, width_tab_switcher, 1, '')
+	update_win(stdscr, windows["win_text_main"], height_tabbed_window, width_tabbed_window, 2, '')
+	####################
+	
+	# Buttons - add here.
+	update_button_tab(stdscr, buttons["button_tab_main_text"], 
+		panels["panel_text_main"], height_button_tab_switcher, 
+		width_button_tab_switcher, 1, 2, strings["button_text_main"])
+	update_button_tab(stdscr, buttons["button_tab_char"], 
+		panels["panel_char"], height_button_tab_switcher, 
+		width_button_tab_switcher, 1, 2, strings["button_char"])
+	####################
+	
+	curses.panel.update_panels()
+	curses.doupdate()
+
+
+# DEFINITIONS: TAB CLOSING
+def close_all_tabs():
+	
+	# Add all tabs here.
+	panels["panel_text_main"].hide()
+	panels["panel_char"].hide()
+	####################
+	
+	curses.panel.update_panels()
+	curses.curs_set(False)
+	return True
+
+
+# DEFINITIONS: INIT
 def main(stdscr):
-	# Init the screen and curses.
+	# Init curses.
 	stdscr.clear()
 	curses.mousemask(curses.ALL_MOUSE_EVENTS)
+	curses.curs_set(False)
+	####################
+	
+	# Color pairs.
 	curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_BLACK)
 	curses.init_pair(2, curses.COLOR_YELLOW, curses.COLOR_BLACK)
 	curses.init_pair(3, curses.COLOR_GREEN, curses.COLOR_BLACK)
 	curses.init_pair(4, curses.COLOR_BLUE, curses.COLOR_BLACK)
-	curses.curs_set(False)
+	####################
 	
 	# Windows and panels.
 	win_main = curses.newwin(height_main, width_main, 0, 0)
+	
 	win_text_main = curses.newwin(
-		height_text_main, width_text_main, 
-		offset_vert_text_main, offset_horiz_text_main)
+		height_tabbed_window, width_tabbed_window, 
+		offset_vert_tabbed_window, offset_horiz_tabbed_window)
+		
+	win_char = curses.newwin(
+		height_tabbed_window, width_tabbed_window, 
+		offset_vert_tabbed_window, offset_horiz_tabbed_window)
 		
 	win_tab_switcher = curses.newwin(
 		height_tab_switcher, width_tab_switcher, 
 		offset_vert_tab_switcher, offset_horiz_tab_switcher)
+	####################
 	
-	# Buttons.
+	# Buttons. Tabs.
 	# Increment each horiz. offset by button width + offset.
 	button_tab_main_text = win_tab_switcher.derwin(
 		height_button_tab_switcher, width_button_tab_switcher, 
 		offset_vert_button_tab_switcher, offset_horiz_button_tab_switcher)
 	
-	# Winfows and tabs.
+	button_tab_char = win_tab_switcher.derwin(
+		height_button_tab_switcher, width_button_tab_switcher, 
+		offset_vert_button_tab_switcher, 
+		offset_horiz_button_tab_switcher + width_button_tab_switcher * 1)
+	####################
+	
+	# Winfows and tabs panels.
 	panel_main = curses.panel.new_panel(win_main)
 	panel_text_main = curses.panel.new_panel(win_text_main)
+	panel_char = curses.panel.new_panel(win_text_main)
 	panel_tab_switcher = curses.panel.new_panel(win_tab_switcher)
-	# Buttons.
-	panel_button_tab_main_text = curses.panel.new_panel(button_tab_main_text)
+	####################
 	
-	# Store references to windows, panels, buttons in dicts.
-	# Windows and tabs.
+	# Buttons panels.
+	panel_button_tab_main_text = curses.panel.new_panel(button_tab_main_text)
+	panel_button_tab_char = curses.panel.new_panel(button_tab_char)
+	####################
+	
+	# Store Windows and tabs.
 	windows["win_main"] = win_main
 	windows["win_text_main"] = win_text_main
+	windows["win_char"] = win_char
 	windows["win_tab_switcher"] = win_tab_switcher
-	# Button sub-windows.
-	buttons["button_tab_main_text"] = button_tab_main_text
+	####################
 	
-	# Panels windows.
+	# Store Button sub-windows.
+	buttons["button_tab_main_text"] = button_tab_main_text
+	buttons["button_tab_char"] = button_tab_char
+	####################
+	
+	# Store Panels windows.
 	panels["panel_main"] = panel_main
 	panels["panel_text_main"] = panel_text_main
+	panels["panel_char"] = panel_char
 	panels["panel_tab_switcher"] = panel_tab_switcher
-	# Panels buttons.
-	panels["panel_button_tab_main_text"] = panel_button_tab_main_text
+	####################
 	
-	# Init all once.
-	# Windows.
+	# Store Panels buttons.
+	panels_buttons["panel_button_tab_main_text"] = panel_button_tab_main_text
+	panels_buttons["panel_button_tab_char"] = panel_button_tab_char
+	####################
+	
+	# Init Windows panels.
 	panels["panel_main"].show()
 	panels["panel_tab_switcher"].show()
 	panels["panel_text_main"].hide()
-	# Buttons.
-	panels["panel_button_tab_main_text"].show()
+	panels["panel_char"].hide()
+	####################
+	
+	# Init Buttons.
+	panels_buttons["panel_button_tab_main_text"].show()
+	panels_buttons["panel_button_tab_char"].show()
+	####################
 	
 	# Update all windows and buttons.
 	update_all(stdscr)
 	
 	while True:
-		
 		# Read user input. Input is made non-blocking for future
 		# animation implementations.
 		stdscr.timeout(anim_delay)
@@ -368,11 +454,12 @@ def main(stdscr):
 		
 			# Button handling.
 			result = handle_buttons(mx, my, stdscr)
+		####################
 					
-		# Quit.
+		# Process keys.
 		if key == ord('q'):
 			quit()
-		
+		####################
 		
 		# Update after input.
 		update_all(stdscr)
