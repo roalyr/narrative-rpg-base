@@ -5,7 +5,7 @@ import shutil
 ########################################
 
 # CONSTANTS
-anim_delay = 500
+anim_delay = -1
 
 ########################################
 
@@ -42,6 +42,7 @@ strings = {
 	"main_title" : " Narrative game framework ",
 	"button_text_main" : "Logs",
 	"button_char" : "Char",
+	"button_assets" : "Asst",
 }
 
 ########################################
@@ -75,14 +76,14 @@ def update_win(stdscr, win, h, w, col, title):
 		win.addstr(0, w // 2 - len(title) // 2, title)
 	win.noutrefresh()
 	
-def update_button_tab(stdscr, button, tab, h, w, col, col2, title):
+def update_button_tab(stdscr, button, tab, h, w, col, col2, title, lr_corner, ll_corner):
 	button.resize(h, w)
 	button.clear()
 	# Active
 	if not tab.hidden():
 		button.attron(curses.color_pair(col2))
-		button.addstr(1, w // 2 - len(title) // 2, title + '*')
-		button.border(0, 0, 0, ' ', 0, 0, curses.ACS_VLINE, curses.ACS_LLCORNER)
+		button.addstr(1, w // 2 - len(title) // 2, title + ':')
+		button.border(0, 0, 0, ' ', 0, 0, lr_corner, ll_corner)
 		button.attroff(curses.color_pair(col2))
 	# Inactive
 	else:
@@ -102,7 +103,7 @@ def handle_tab_buttons(x, y, stdscr, b, pb, p, result_start, result_stop, custom
 	):					
 		# When tab is inactive - activate it.
 		if p.hidden():
-			close_all_tabs()
+			close_all_tabs(stdscr)
 			# Modify tab switcher button visibility when tab raised.
 			p.show()
 			pb.show()
@@ -110,12 +111,12 @@ def handle_tab_buttons(x, y, stdscr, b, pb, p, result_start, result_stop, custom
 			# Run a function with its own loop.
 			custom_function(*args)
 			# Finish when returning.
-			close_all_tabs()
+			close_all_tabs(stdscr)
 			# Return result
 			return result_start
 		# When tab is active - close it.
 		else:
-			close_all_tabs()
+			# close_all_tabs(stdscr)
 			# Return result
 			return result_stop
 	# If no button pressed - return no result.
@@ -163,7 +164,49 @@ def render_buffer(win_text, init_x, init_y, max_x, max_y, x, y):
 
 ########################################
 
-# TAB. TEXT PROCESSING
+# TAB. ASSETS.
+def display_assets(stdscr,):
+	stdscr.timeout(-1)
+	while True:
+		key = stdscr.get_wch()
+		
+		# Handle navigation with screen button clicks.
+		if key == curses.KEY_MOUSE:
+			_, mx, my, _, bstate = curses.getmouse()
+
+			# Left mouse click on text field, when cursor is shown.
+			if bstate & curses.BUTTON1_CLICKED:
+			
+				# Button handling while text typing.
+				result = handle_buttons(mx, my, stdscr)
+				
+				# Stop editor when closing the tab or switching to other tab.
+				if result in ("start_text_edit", "start_char", "stop_assets"):
+					break 
+					
+
+# TAB. CHAR.
+def display_char(stdscr,):
+	stdscr.timeout(-1)
+	while True:
+		key = stdscr.get_wch()
+		
+		# Handle navigation with screen button clicks.
+		if key == curses.KEY_MOUSE:
+			_, mx, my, _, bstate = curses.getmouse()
+
+			# Left mouse click on text field, when cursor is shown.
+			if bstate & curses.BUTTON1_CLICKED:
+			
+				# Button handling while text typing.
+				result = handle_buttons(mx, my, stdscr)
+				
+				# Stop editor when closing the tab or switching to other tab.
+				if result in ("start_text_edit", "stop_char", "start_assets"):
+					break 
+					
+
+# TAB. TEXT PROCESSING.
 def write_text(stdscr, win_text):
 	# Start cursor.
 	stdscr.timeout(-1)
@@ -187,7 +230,6 @@ def write_text(stdscr, win_text):
 	
 	# Start editing text..
 	while True:
-		
 		key = stdscr.get_wch()
 		
 		# Handle navigation with screen button clicks.
@@ -201,12 +243,10 @@ def write_text(stdscr, win_text):
 				x, y = move_cursor(win_text, lx, ly, init_x, init_y, max_x, max_y)
 				
 				# Button handling while text typing.
-				gx = mx
-				gy = my
-				result = handle_buttons(gx, gy, stdscr)
+				result = handle_buttons(mx, my, stdscr)
 				
 				# Stop editor when closing the tab or switching to other tab.
-				if result in ("stop_text_edit", "start_char"):
+				if result in ("stop_text_edit", "start_char", "start_assets"):
 					break 
 		
 		if key == curses.KEY_RIGHT:
@@ -301,7 +341,19 @@ def handle_buttons(x, y, stdscr):
 		panels["panel_char"],
 		"start_char", "stop_char",
 		# Custom function.
-		print
+		display_char, stdscr
+	)
+	if result: return result
+	####################
+	
+	# Tab switcher assets button.
+	result = handle_tab_buttons(x, y, stdscr, 
+		buttons["button_tab_assets"],
+		panels_buttons["panel_button_tab_assets"],
+		panels["panel_assets"],
+		"start_assets", "stop_assets",
+		# Custom function.
+		display_assets, stdscr
 	)
 	if result: return result
 	####################
@@ -319,15 +371,26 @@ def update_all(stdscr):
 	update_win(stdscr, windows["win_main"], height_main, width_main, 1, strings["main_title"])
 	update_win(stdscr, windows["win_tab_switcher"], height_tab_switcher, width_tab_switcher, 1, '')
 	update_win(stdscr, windows["win_text_main"], height_tabbed_window, width_tabbed_window, 2, '')
+	update_win(stdscr, windows["win_char"], height_tabbed_window, width_tabbed_window, 2, '')
+	update_win(stdscr, windows["win_assets"], height_tabbed_window, width_tabbed_window, 2, '')
 	####################
 	
 	# Buttons - add here.
 	update_button_tab(stdscr, buttons["button_tab_main_text"], 
 		panels["panel_text_main"], height_button_tab_switcher, 
-		width_button_tab_switcher, 1, 2, strings["button_text_main"])
+		width_button_tab_switcher, 1, 2, strings["button_text_main"],
+		curses.ACS_VLINE, curses.ACS_LLCORNER
+	)
 	update_button_tab(stdscr, buttons["button_tab_char"], 
 		panels["panel_char"], height_button_tab_switcher, 
-		width_button_tab_switcher, 1, 2, strings["button_char"])
+		width_button_tab_switcher, 1, 2, strings["button_char"],
+		curses.ACS_LRCORNER, curses.ACS_LLCORNER
+	)
+	update_button_tab(stdscr, buttons["button_tab_assets"], 
+		panels["panel_assets"], height_button_tab_switcher, 
+		width_button_tab_switcher, 1, 2, strings["button_assets"],
+		curses.ACS_LRCORNER, curses.ACS_LLCORNER
+	)
 	####################
 	
 	curses.panel.update_panels()
@@ -335,15 +398,17 @@ def update_all(stdscr):
 
 
 # DEFINITIONS: TAB CLOSING
-def close_all_tabs():
+def close_all_tabs(stdscr):
 	
 	# Add all tabs here.
 	panels["panel_text_main"].hide()
 	panels["panel_char"].hide()
+	panels["panel_assets"].hide()
 	####################
 	
 	curses.panel.update_panels()
 	curses.curs_set(False)
+	stdscr.timeout(anim_delay)
 	return True
 
 
@@ -363,67 +428,54 @@ def main(stdscr):
 	####################
 	
 	# Windows and panels.
-	win_main = curses.newwin(height_main, width_main, 0, 0)
+	windows["win_main"] = curses.newwin(height_main, width_main, 0, 0)
 	
-	win_text_main = curses.newwin(
-		height_tabbed_window, width_tabbed_window, 
-		offset_vert_tabbed_window, offset_horiz_tabbed_window)
-		
-	win_char = curses.newwin(
-		height_tabbed_window, width_tabbed_window, 
-		offset_vert_tabbed_window, offset_horiz_tabbed_window)
-		
-	win_tab_switcher = curses.newwin(
+	windows["win_tab_switcher"] = curses.newwin(
 		height_tab_switcher, width_tab_switcher, 
 		offset_vert_tab_switcher, offset_horiz_tab_switcher)
+	
+	windows["win_text_main"] = curses.newwin(
+		height_tabbed_window, width_tabbed_window, 
+		offset_vert_tabbed_window, offset_horiz_tabbed_window)
+		
+	windows["win_char"] = curses.newwin(
+		height_tabbed_window, width_tabbed_window, 
+		offset_vert_tabbed_window, offset_horiz_tabbed_window)
+		
+	windows["win_assets"] = curses.newwin(
+		height_tabbed_window, width_tabbed_window, 
+		offset_vert_tabbed_window, offset_horiz_tabbed_window)
 	####################
 	
 	# Buttons. Tabs.
 	# Increment each horiz. offset by button width + offset.
-	button_tab_main_text = win_tab_switcher.derwin(
+	buttons["button_tab_main_text"] = windows["win_tab_switcher"].derwin(
 		height_button_tab_switcher, width_button_tab_switcher, 
 		offset_vert_button_tab_switcher, offset_horiz_button_tab_switcher)
 	
-	button_tab_char = win_tab_switcher.derwin(
+	buttons["button_tab_char"] = windows["win_tab_switcher"].derwin(
 		height_button_tab_switcher, width_button_tab_switcher, 
 		offset_vert_button_tab_switcher, 
 		offset_horiz_button_tab_switcher + width_button_tab_switcher * 1)
+		
+	buttons["button_tab_assets"] = windows["win_tab_switcher"].derwin(
+		height_button_tab_switcher, width_button_tab_switcher, 
+		offset_vert_button_tab_switcher, 
+		offset_horiz_button_tab_switcher + width_button_tab_switcher * 2)
 	####################
 	
 	# Winfows and tabs panels.
-	panel_main = curses.panel.new_panel(win_main)
-	panel_text_main = curses.panel.new_panel(win_text_main)
-	panel_char = curses.panel.new_panel(win_text_main)
-	panel_tab_switcher = curses.panel.new_panel(win_tab_switcher)
+	panels["panel_main"] = curses.panel.new_panel(windows["win_main"])
+	panels["panel_tab_switcher"] = curses.panel.new_panel(windows["win_tab_switcher"])
+	panels["panel_text_main"] = curses.panel.new_panel(windows["win_text_main"])
+	panels["panel_char"] = curses.panel.new_panel(windows["win_char"])
+	panels["panel_assets"] = curses.panel.new_panel(windows["win_assets"])
 	####################
 	
 	# Buttons panels.
-	panel_button_tab_main_text = curses.panel.new_panel(button_tab_main_text)
-	panel_button_tab_char = curses.panel.new_panel(button_tab_char)
-	####################
-	
-	# Store Windows and tabs.
-	windows["win_main"] = win_main
-	windows["win_text_main"] = win_text_main
-	windows["win_char"] = win_char
-	windows["win_tab_switcher"] = win_tab_switcher
-	####################
-	
-	# Store Button sub-windows.
-	buttons["button_tab_main_text"] = button_tab_main_text
-	buttons["button_tab_char"] = button_tab_char
-	####################
-	
-	# Store Panels windows.
-	panels["panel_main"] = panel_main
-	panels["panel_text_main"] = panel_text_main
-	panels["panel_char"] = panel_char
-	panels["panel_tab_switcher"] = panel_tab_switcher
-	####################
-	
-	# Store Panels buttons.
-	panels_buttons["panel_button_tab_main_text"] = panel_button_tab_main_text
-	panels_buttons["panel_button_tab_char"] = panel_button_tab_char
+	panels_buttons["panel_button_tab_main_text"] = curses.panel.new_panel(buttons["button_tab_main_text"])
+	panels_buttons["panel_button_tab_char"] = curses.panel.new_panel(buttons["button_tab_char"])
+	panels_buttons["panel_button_tab_assets"] = curses.panel.new_panel(buttons["button_tab_assets"])
 	####################
 	
 	# Init Windows panels.
@@ -431,11 +483,13 @@ def main(stdscr):
 	panels["panel_tab_switcher"].show()
 	panels["panel_text_main"].hide()
 	panels["panel_char"].hide()
+	panels["panel_assets"].hide()
 	####################
 	
 	# Init Buttons.
 	panels_buttons["panel_button_tab_main_text"].show()
 	panels_buttons["panel_button_tab_char"].show()
+	panels_buttons["panel_button_tab_assets"].show()
 	####################
 	
 	# Update all windows and buttons.
