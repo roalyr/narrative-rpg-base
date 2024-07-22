@@ -11,8 +11,8 @@ anim_delay = 1000
 
 # WINDOW LAYOUT
 # Main window.
-height_main = 27
-width_main = 40
+height_main = 25
+width_main = 39
 
 # Tab switcher.
 height_tab_switcher = 3
@@ -28,7 +28,7 @@ offset_horiz_button_tab_switcher = 0 # between buttons
 
 # Text editor tab (window).
 height_tabbed_window = 20
-width_tabbed_window = 36
+width_tabbed_window = 35
 offset_vert_tabbed_window = 3
 offset_horiz_tabbed_window = 2
 
@@ -43,6 +43,8 @@ strings = {
 	"button_text_main" : "Logs",
 	"button_char" : "Char",
 	"button_assets" : "Asst",
+	"button_oracle" : "Orcl",
+	"button_info" : "Info",
 }
 
 ########################################
@@ -164,6 +166,56 @@ def render_buffer(win_text, init_x, init_y, max_x, max_y, x, y):
 
 ########################################
 
+# TAB. INFO.
+def display_info(stdscr,):
+	stdscr.timeout(anim_delay)
+	while True:
+		try: key = stdscr.get_wch()
+		except: key = -1
+		
+		# Handle navigation with screen button clicks.
+		if key == curses.KEY_MOUSE:
+			_, mx, my, _, bstate = curses.getmouse()
+
+			# Left mouse click on text field, when cursor is shown.
+			if bstate & curses.BUTTON1_CLICKED:
+			
+				# Button handling while text typing.
+				result = handle_buttons(mx, my, stdscr)
+				
+				# Stop editor when closing the tab or switching to other tab.
+				if result in ("start_text_edit", "start_char", "start_assets", "start_oracle", "stop_info"):
+					break 
+					
+		curses.panel.update_panels() # Must be called here.
+		windows["win_info"].refresh()
+					
+
+# TAB. ORACLE.
+def display_oracle(stdscr,):
+	stdscr.timeout(anim_delay)
+	while True:
+		try: key = stdscr.get_wch()
+		except: key = -1
+		
+		# Handle navigation with screen button clicks.
+		if key == curses.KEY_MOUSE:
+			_, mx, my, _, bstate = curses.getmouse()
+
+			# Left mouse click on text field, when cursor is shown.
+			if bstate & curses.BUTTON1_CLICKED:
+			
+				# Button handling while text typing.
+				result = handle_buttons(mx, my, stdscr)
+				
+				# Stop editor when closing the tab or switching to other tab.
+				if result in ("start_text_edit", "start_char", "start_assets", "stop_oracle", "start_info"):
+					break 
+					
+		curses.panel.update_panels() # Must be called here.
+		windows["win_oracle"].refresh()
+					
+
 # TAB. ASSETS.
 def display_assets(stdscr,):
 	stdscr.timeout(anim_delay)
@@ -182,7 +234,7 @@ def display_assets(stdscr,):
 				result = handle_buttons(mx, my, stdscr)
 				
 				# Stop editor when closing the tab or switching to other tab.
-				if result in ("start_text_edit", "start_char", "stop_assets"):
+				if result in ("start_text_edit", "start_char", "stop_assets", "start_oracle", "start_info"):
 					break 
 					
 		curses.panel.update_panels() # Must be called here.
@@ -207,7 +259,7 @@ def display_char(stdscr,):
 				result = handle_buttons(mx, my, stdscr)
 				
 				# Stop editor when closing the tab or switching to other tab.
-				if result in ("start_text_edit", "stop_char", "start_assets"):
+				if result in ("start_text_edit", "stop_char", "start_assets", "start_oracle", "start_info"):
 					break
 	
 		curses.panel.update_panels() # Must be called here.
@@ -255,7 +307,7 @@ def write_text(stdscr):
 				result = handle_buttons(mx, my, stdscr)
 				
 				# Stop editor when closing the tab or switching to other tab.
-				if result in ("stop_text_edit", "start_char", "start_assets"):
+				if result in ("stop_text_edit", "start_char", "start_assets", "start_oracle", "start_info"):
 					break 
 		####################
 		
@@ -371,6 +423,30 @@ def handle_buttons(x, y, stdscr):
 	if result: return result
 	####################
 	
+	# Tab switcher oracle button.
+	result = handle_tab_buttons(x, y, stdscr, 
+		buttons["button_tab_oracle"],
+		panels_buttons["panel_button_tab_oracle"],
+		panels["panel_oracle"],
+		"start_oracle", "stop_oracle",
+		# Custom function.
+		display_oracle, stdscr
+	)
+	if result: return result
+	####################
+	
+	# Tab switcher info button.
+	result = handle_tab_buttons(x, y, stdscr, 
+		buttons["button_tab_info"],
+		panels_buttons["panel_button_tab_info"],
+		panels["panel_info"],
+		"start_info", "stop_info",
+		# Custom function.
+		display_info, stdscr
+	)
+	if result: return result
+	####################
+	
 	# If no button pressed - return no result.
 	return ''
 
@@ -386,6 +462,8 @@ def update_all(stdscr):
 	update_win(stdscr, windows["win_text_main"], height_tabbed_window, width_tabbed_window, 2, '')
 	update_win(stdscr, windows["win_char"], height_tabbed_window, width_tabbed_window, 2, '')
 	update_win(stdscr, windows["win_assets"], height_tabbed_window, width_tabbed_window, 2, '')
+	update_win(stdscr, windows["win_oracle"], height_tabbed_window, width_tabbed_window, 2, '')
+	update_win(stdscr, windows["win_info"], height_tabbed_window, width_tabbed_window, 2, '')
 	####################
 	
 	# Buttons - add here.
@@ -404,6 +482,16 @@ def update_all(stdscr):
 		width_button_tab_switcher, 1, 2, strings["button_assets"],
 		curses.ACS_LRCORNER, curses.ACS_LLCORNER
 	)
+	update_button_tab(stdscr, buttons["button_tab_oracle"], 
+		panels["panel_oracle"], height_button_tab_switcher, 
+		width_button_tab_switcher, 1, 2, strings["button_oracle"],
+		curses.ACS_LRCORNER, curses.ACS_LLCORNER
+	)
+	update_button_tab(stdscr, buttons["button_tab_info"], 
+		panels["panel_info"], height_button_tab_switcher, 
+		width_button_tab_switcher, 1, 2, strings["button_info"],
+		curses.ACS_LRCORNER, curses.ACS_VLINE
+	)
 	####################
 	
 	curses.panel.update_panels()
@@ -417,6 +505,8 @@ def close_all_tabs(stdscr):
 	panels["panel_text_main"].hide()
 	panels["panel_char"].hide()
 	panels["panel_assets"].hide()
+	panels["panel_oracle"].hide()
+	panels["panel_info"].hide()
 	####################
 	
 	curses.panel.update_panels()
@@ -458,6 +548,14 @@ def main(stdscr):
 	windows["win_assets"] = curses.newwin(
 		height_tabbed_window, width_tabbed_window, 
 		offset_vert_tabbed_window, offset_horiz_tabbed_window)
+		
+	windows["win_oracle"] = curses.newwin(
+		height_tabbed_window, width_tabbed_window, 
+		offset_vert_tabbed_window, offset_horiz_tabbed_window)
+		
+	windows["win_info"] = curses.newwin(
+		height_tabbed_window, width_tabbed_window, 
+		offset_vert_tabbed_window, offset_horiz_tabbed_window)
 	####################
 	
 	# Buttons. Tabs.
@@ -475,6 +573,16 @@ def main(stdscr):
 		height_button_tab_switcher, width_button_tab_switcher, 
 		offset_vert_button_tab_switcher, 
 		offset_horiz_button_tab_switcher + width_button_tab_switcher * 2)
+		
+	buttons["button_tab_oracle"] = windows["win_tab_switcher"].derwin(
+		height_button_tab_switcher, width_button_tab_switcher, 
+		offset_vert_button_tab_switcher, 
+		offset_horiz_button_tab_switcher + width_button_tab_switcher * 3)
+		
+	buttons["button_tab_info"] = windows["win_tab_switcher"].derwin(
+		height_button_tab_switcher, width_button_tab_switcher, 
+		offset_vert_button_tab_switcher, 
+		offset_horiz_button_tab_switcher + width_button_tab_switcher * 4)
 	####################
 	
 	# Winfows and tabs panels.
@@ -483,12 +591,16 @@ def main(stdscr):
 	panels["panel_text_main"] = curses.panel.new_panel(windows["win_text_main"])
 	panels["panel_char"] = curses.panel.new_panel(windows["win_char"])
 	panels["panel_assets"] = curses.panel.new_panel(windows["win_assets"])
+	panels["panel_oracle"] = curses.panel.new_panel(windows["win_oracle"])
+	panels["panel_info"] = curses.panel.new_panel(windows["win_info"])
 	####################
 	
 	# Buttons panels.
 	panels_buttons["panel_button_tab_main_text"] = curses.panel.new_panel(buttons["button_tab_main_text"])
 	panels_buttons["panel_button_tab_char"] = curses.panel.new_panel(buttons["button_tab_char"])
 	panels_buttons["panel_button_tab_assets"] = curses.panel.new_panel(buttons["button_tab_assets"])
+	panels_buttons["panel_button_tab_oracle"] = curses.panel.new_panel(buttons["button_tab_oracle"])
+	panels_buttons["panel_button_tab_info"] = curses.panel.new_panel(buttons["button_tab_info"])
 	####################
 	
 	# Init Windows panels.
@@ -497,12 +609,16 @@ def main(stdscr):
 	panels["panel_text_main"].hide()
 	panels["panel_char"].hide()
 	panels["panel_assets"].hide()
+	panels["panel_oracle"].hide()
+	panels["panel_info"].hide()
 	####################
 	
 	# Init Buttons.
 	panels_buttons["panel_button_tab_main_text"].show()
 	panels_buttons["panel_button_tab_char"].show()
 	panels_buttons["panel_button_tab_assets"].show()
+	panels_buttons["panel_button_tab_oracle"].show()
+	panels_buttons["panel_button_tab_info"].show()
 	####################
 	
 	# Update all windows and buttons.
