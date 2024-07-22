@@ -5,7 +5,7 @@ import shutil
 ########################################
 
 # CONSTANTS
-anim_delay = -1
+anim_delay = 1000
 
 ########################################
 
@@ -166,9 +166,10 @@ def render_buffer(win_text, init_x, init_y, max_x, max_y, x, y):
 
 # TAB. ASSETS.
 def display_assets(stdscr,):
-	stdscr.timeout(-1)
+	stdscr.timeout(anim_delay)
 	while True:
-		key = stdscr.get_wch()
+		try: key = stdscr.get_wch()
+		except: key = -1
 		
 		# Handle navigation with screen button clicks.
 		if key == curses.KEY_MOUSE:
@@ -184,12 +185,16 @@ def display_assets(stdscr,):
 				if result in ("start_text_edit", "start_char", "stop_assets"):
 					break 
 					
+		curses.panel.update_panels() # Must be called here.
+		windows["win_assets"].refresh()
+					
 
 # TAB. CHAR.
 def display_char(stdscr,):
-	stdscr.timeout(-1)
+	stdscr.timeout(anim_delay)
 	while True:
-		key = stdscr.get_wch()
+		try: key = stdscr.get_wch()
+		except: key = -1
 		
 		# Handle navigation with screen button clicks.
 		if key == curses.KEY_MOUSE:
@@ -203,13 +208,16 @@ def display_char(stdscr,):
 				
 				# Stop editor when closing the tab or switching to other tab.
 				if result in ("start_text_edit", "stop_char", "start_assets"):
-					break 
+					break
+	
+		curses.panel.update_panels() # Must be called here.
+		windows["win_char"].refresh()
 					
 
 # TAB. TEXT PROCESSING.
-def write_text(stdscr, win_text):
+def write_text(stdscr):
 	# Start cursor.
-	stdscr.timeout(-1)
+	stdscr.timeout(anim_delay)
 	curses.curs_set(True)
 	max_x = width_tabbed_window
 	max_y = height_tabbed_window
@@ -219,18 +227,19 @@ def write_text(stdscr, win_text):
 	init_y = 1
 	x = init_x
 	y = init_y
-	win_text.move(init_x, init_y)
+	windows["win_text_main"].move(init_x, init_y)
 	
 	# Render text initially (from loaded byffer page).
-	render_buffer(win_text, init_x, init_y, max_x, max_y, x, y)
+	render_buffer(windows["win_text_main"], init_x, init_y, max_x, max_y, x, y)
 	
 	# Refresh window after input.
 	curses.panel.update_panels() # Must be called here.
-	win_text.refresh()
+	windows["win_text_main"].refresh()
 	
 	# Start editing text..
 	while True:
-		key = stdscr.get_wch()
+		try: key = stdscr.get_wch()
+		except: key = -1
 		
 		# Handle navigation with screen button clicks.
 		if key == curses.KEY_MOUSE:
@@ -240,7 +249,7 @@ def write_text(stdscr, win_text):
 			if bstate & curses.BUTTON1_CLICKED:
 				lx = mx - offset_vert_tabbed_window + 1
 				ly = my - offset_horiz_tabbed_window - 1
-				x, y = move_cursor(win_text, lx, ly, init_x, init_y, max_x, max_y)
+				x, y = move_cursor(windows["win_text_main"], lx, ly, init_x, init_y, max_x, max_y)
 				
 				# Button handling while text typing.
 				result = handle_buttons(mx, my, stdscr)
@@ -248,25 +257,27 @@ def write_text(stdscr, win_text):
 				# Stop editor when closing the tab or switching to other tab.
 				if result in ("stop_text_edit", "start_char", "start_assets"):
 					break 
+		####################
 		
 		if key == curses.KEY_RIGHT:
 			x += 1
-			x,y = move_cursor(win_text, x, y, init_x, init_y, max_x, max_y)
+			x,y = move_cursor(windows["win_text_main"], x, y, init_x, init_y, max_x, max_y)
 		elif key == curses.KEY_LEFT:
 			x -= 1
-			x,y = move_cursor(win_text, x, y, init_x, init_y, max_x, max_y)
+			x,y = move_cursor(windows["win_text_main"], x, y, init_x, init_y, max_x, max_y)
 		elif key == curses.KEY_UP:
 			y -= 1
-			x,y = move_cursor(win_text, x, y, init_x, init_y, max_x, max_y)
+			x,y = move_cursor(windows["win_text_main"], x, y, init_x, init_y, max_x, max_y)
 		elif key == curses.KEY_DOWN:
 			y += 1
-			x,y = move_cursor(win_text, x, y, init_x, init_y, max_x, max_y)
-			
+			x,y = move_cursor(windows["win_text_main"], x, y, init_x, init_y, max_x, max_y)
+		####################
+		
 		elif key in (curses.KEY_ENTER, chr(10), chr(13)):
-			x += 1
-			y = init_y
-			x,y = move_cursor(win_text, x, y, init_x, init_y, max_x, max_y)
-			
+			y += 1
+			x = init_x
+			x,y = move_cursor(windows["win_text_main"], x, y, init_x, init_y, max_x, max_y)
+		####################
 			
 		elif key in (curses.KEY_BACKSPACE, chr(127)):
 			index = max_x * (y-1) + (x-1)
@@ -275,16 +286,17 @@ def write_text(stdscr, win_text):
 				except: pass
 			# Update cursor position manually.
 			x -= 1
-			x, y = move_cursor(win_text, x, y, init_x, init_y, max_x, max_y)
+			x, y = move_cursor(windows["win_text_main"], x, y, init_x, init_y, max_x, max_y)
 			# Clear the characters in the window after the buffer to prevent trailing.
 			index_last = len(buffer)
 			
 			ix = index_last % max_x + init_y
 			iy = index_last // max_x+ init_x
 			# Fill up with space. Restore border in right side.
-			try: win_text.addstr(iy, ix, ' '); win_text.border()
+			try: windows["win_text_main"].addstr(iy, ix, ' '); windows["win_text_main"].border()
 			except: pass
-
+		####################
+		
 		# Character insertion within limit.
 		else:
 			# Consume a space in the very end of buffer if it exists
@@ -307,15 +319,16 @@ def write_text(stdscr, win_text):
 					buffer.insert(index, key)
 				# Update cursor position manually.
 				x += 1
-				x, y = move_cursor(win_text, x, y, init_x, init_y, max_x, max_y)
+				x, y = move_cursor(windows["win_text_main"], x, y, init_x, init_y, max_x, max_y)
 			# TODO: add notif. when buffer limit reached.
+		####################
 		
 		# Render text within the loop as it is edited.
-		render_buffer(win_text, init_x, init_y, max_x, max_y, x, y)
+		render_buffer(windows["win_text_main"], init_x, init_y, max_x, max_y, x, y)
 		
 		# Refresh window after input.
 		curses.panel.update_panels() # Must be called here.
-		win_text.refresh()
+		windows["win_text_main"].refresh()
 
 ########################################
 
@@ -329,7 +342,7 @@ def handle_buttons(x, y, stdscr):
 		panels["panel_text_main"],
 		"start_text_edit", "stop_text_edit",
 		# Custom function.
-		write_text, stdscr, windows["win_text_main"]
+		write_text, stdscr
 	)
 	if result: return result
 	####################
