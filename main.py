@@ -54,8 +54,8 @@ buffer = []
 ########################################
 
 # TESTING
-test_text_ = "There are many variations of passages of Lorem Ipsum available, but the majority have suffered alteration in some form, by injected humour, or randomised words which don't look even slightly believable. If you are going to use a passage of Lorem Ipsum, you need to be sure there isn't anything embarrassing hidden in the middle of text. All the Lorem Ipsum generators on the Internet tend to repeat predefined chunks as necessary, making this the first true generator on the Internet."
-test_text = "There are many variations of passages of Lorem Ipsum available"
+test_text = "There are many variations of passages of Lorem Ipsum available, but the majority have suffered alteration in some form, by injected humour, or randomised words which don't look even slightly believable. If you are going to use a passage of Lorem Ipsum, you need to be sure there isn't anything embarrassing hidden in the middle of text. All the Lorem Ipsum generators on the Internet tend to repeat predefined chunks as necessary, making this the first true generator on the Internet."
+test_text_ = "There are many variations of passages of Lorem Ipsum available"
 
 # Split current page string into characters.
 for c in test_text_:
@@ -72,8 +72,6 @@ def update_win(stdscr, win, h, w, col, title):
 	if title:
 		win.addstr(0, width_main // 2 - len(title) // 2, title)
 	win.noutrefresh()
-	
-
 	
 # BUTTONS # TODO: make unified.
 def update_button_tab_main_text(stdscr, button_tab_main_text):
@@ -248,7 +246,8 @@ def write_text(stdscr, win_text):
 		elif key in (curses.KEY_BACKSPACE, chr(127)):
 			index = max_x * (y-1) + (x-1)
 			if (index - 1 >= 0) and (index - 1 <= len(buffer)):
-				buffer.pop(index - 1)
+				try: buffer.pop(index - 1)
+				except: pass
 			# Update cursor position manually.
 			x -= 1
 			x, y = move_cursor(win_text, x, y, init_x, init_y, max_x, max_y)
@@ -265,8 +264,9 @@ def write_text(stdscr, win_text):
 		else:
 			# Consume a space in the very end of buffer if it exists
 			# to prevent clogging.
-			if buffer[-1] == ' ':
-				buffer.pop(-1)
+			if (len(buffer) > 0):
+				if (buffer[-1] == ' '):
+					buffer.pop(-1)
 				
 			if (type(key) is str) and (len(buffer) <= buffer_limit):
 				index = max_x * (y-1) + (x-1)
