@@ -79,6 +79,8 @@ def move_cursor(win_text, x, y, init_x, init_y, max_x, max_y):
 		x = init_x
 	# Move cursor.
 	win_text.move(x,y)
+	#win_text.chgat(x, y, 1, curses.A_BLINK | curses.A_UNDERLINE)
+	#win_text.refresh()
 	return x, y
 	
 def render_buffer(win_text, init_x, init_y, max_x, max_y, x, y):
@@ -97,6 +99,7 @@ def write_text(stdscr, win_text):
 	# Start cursor.
 	stdscr.timeout(-1)
 	curses.curs_set(True)
+	curses.mousemask(curses.ALL_MOUSE_EVENTS)
 	max_x = height_text_main
 	max_y = width_text_main
 	max_x -= 2
@@ -117,6 +120,18 @@ def write_text(stdscr, win_text):
 	# Start editing text..
 	while True:
 		key = stdscr.get_wch()
+		
+		# Handle navigation with screen button clicks.
+		if key == curses.KEY_MOUSE:
+			_, my, mx, _, bstate = curses.getmouse()
+			mx -= init_x + 1
+			my -= init_y + 1
+
+			# Left mouse click on text field, when cursor is shown.
+			if bstate & curses.BUTTON1_CLICKED:
+				x,y = move_cursor(win_text, mx, my, init_x, init_y, max_x, max_y)
+				
+		
 		if key == curses.KEY_RIGHT:
 			y += 1
 			x,y = move_cursor(win_text, x, y, init_x, init_y, max_x, max_y)
