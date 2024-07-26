@@ -5,14 +5,14 @@ import shutil
 ########################################
 
 # CONSTANTS
-anim_delay = 1000
+anim_delay = -1
 
 ########################################
 
 # WINDOW LAYOUT
 # Main window.
 height_main = 25
-width_main = 39
+width_main = 95
 
 # Tab switcher.
 height_tab_switcher = 3
@@ -27,10 +27,17 @@ offset_vert_button_tab_switcher = 0
 offset_horiz_button_tab_switcher = 0 # between buttons
 
 # Text editor tab (window).
-height_tabbed_window = 20
-width_tabbed_window = 35
+height_tabbed_window = height_main - 4
+width_tabbed_window = width_button_tab_switcher * 5
 offset_vert_tabbed_window = 3
 offset_horiz_tabbed_window = 2
+
+# Auxilary window (right).
+height_aux = height_tabbed_window + 2
+width_aux = width_main - width_tabbed_window - 5
+offset_vert_aux = 1
+offset_horiz_aux = width_tabbed_window + 3
+
 
 # Text page character limit as defined by window size to avoid scrolling.
 buffer_limit = (height_tabbed_window - 2) * (width_tabbed_window - 2) - 1
@@ -290,6 +297,7 @@ def write_text(stdscr):
 	
 	# Start editing text..
 	while True:
+		
 		try: key = stdscr.get_wch()
 		except: key = -1
 		
@@ -457,7 +465,8 @@ def update_all(stdscr):
 	stdscr.clear()
 	
 	# Windows - add here.
-	update_win(stdscr, windows["win_main"], height_main, width_main, 1, strings["main_title"])
+	update_win(stdscr, windows["win_main"], height_main, width_main, 1, '')
+	update_win(stdscr, windows["win_aux"], height_aux, width_aux, 3, strings["main_title"])
 	update_win(stdscr, windows["win_tab_switcher"], height_tab_switcher, width_tab_switcher, 1, '')
 	update_win(stdscr, windows["win_text_main"], height_tabbed_window, width_tabbed_window, 2, '')
 	update_win(stdscr, windows["win_char"], height_tabbed_window, width_tabbed_window, 2, '')
@@ -533,6 +542,9 @@ def main(stdscr):
 	# Windows and panels.
 	windows["win_main"] = curses.newwin(height_main, width_main, 0, 0)
 	
+	windows["win_aux"] = curses.newwin(height_aux, width_aux, offset_vert_aux, offset_horiz_aux)
+	
+	# Invisible. Do not update.
 	windows["win_tab_switcher"] = curses.newwin(
 		height_tab_switcher, width_tab_switcher, 
 		offset_vert_tab_switcher, offset_horiz_tab_switcher)
@@ -587,6 +599,7 @@ def main(stdscr):
 	
 	# Winfows and tabs panels.
 	panels["panel_main"] = curses.panel.new_panel(windows["win_main"])
+	panels["panel_aux"] = curses.panel.new_panel(windows["win_aux"])
 	panels["panel_tab_switcher"] = curses.panel.new_panel(windows["win_tab_switcher"])
 	panels["panel_text_main"] = curses.panel.new_panel(windows["win_text_main"])
 	panels["panel_char"] = curses.panel.new_panel(windows["win_char"])
@@ -605,7 +618,8 @@ def main(stdscr):
 	
 	# Init Windows panels.
 	panels["panel_main"].show()
-	panels["panel_tab_switcher"].show()
+	panels["panel_aux"].show()
+	panels["panel_tab_switcher"].hide() # This window should be hidden.
 	panels["panel_text_main"].hide()
 	panels["panel_char"].hide()
 	panels["panel_assets"].hide()
@@ -620,6 +634,10 @@ def main(stdscr):
 	panels_buttons["panel_button_tab_oracle"].show()
 	panels_buttons["panel_button_tab_info"].show()
 	####################
+	
+	# Open info at start.
+	panels["panel_info"].show()
+	panels_buttons["panel_button_tab_info"].show()
 	
 	# Update all windows and buttons.
 	update_all(stdscr)
