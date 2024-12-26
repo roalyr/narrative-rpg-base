@@ -2,6 +2,8 @@ import curses
 import curses.panel
 import shutil
 
+import oracles
+
 ########################################
 
 # CONSTANTS
@@ -159,9 +161,9 @@ def move_cursor(win_text, x, y, init_x, init_y, max_x, max_y):
 def is_mouse_click_in_button(mouse_x, mouse_y, btn_start_x, btn_start_y, btn_end_x, btn_end_y, btn_visible):
 	return btn_visible and (btn_start_y <= mouse_y < btn_start_y + btn_end_y) and (btn_start_x <= mouse_x < btn_start_x + btn_end_x)
 
-def render_buffer(win_text, init_x, init_y, max_x, max_y, x, y):
+def render_buffer(text, win_text, init_x, init_y, max_x, max_y, x, y):
 	# Fit buffer onto the window within limitations.
-	for index, c in enumerate(buffer):
+	for index, c in enumerate(text):
 		ix = index % max_x + init_y
 		iy = index // max_x + init_x
 		if ix < max_x+1 and iy < max_y+1:
@@ -200,7 +202,29 @@ def display_info(stdscr,):
 
 # TAB. ORACLE.
 def display_oracle(stdscr,):
+	
+	# Start cursor.
 	stdscr.timeout(anim_delay)
+	curses.curs_set(False)
+	max_x = width_tabbed_window
+	max_y = height_tabbed_window
+	max_x -= 2
+	max_y -= 2
+	init_x = 1
+	init_y = 1
+	x = init_x
+	y = init_y
+	windows["win_oracle"].move(init_x, init_y)
+	
+	rb = oracles.actions[1]
+	
+	# Render text initially (from loaded byffer page).
+	render_buffer(rb, windows["win_oracle"], init_x, init_y, max_x, max_y, x, y)
+	
+	# Refresh window after input.
+	curses.panel.update_panels() # Must be called here.
+	windows["win_oracle"].refresh()
+	
 	while True:
 		try: key = stdscr.get_wch()
 		except: key = -1
@@ -217,8 +241,15 @@ def display_oracle(stdscr,):
 				
 				# Stop editor when closing the tab or switching to other tab.
 				if result in ("start_text_edit", "start_char", "start_assets", "stop_oracle", "start_info"):
-					break 
+					break
+		
+		elif key == 'q':
+			break
 					
+		# Render text within the loop as it is edited.
+		render_buffer(rb, windows["win_oracle"], init_x, init_y, max_x, max_y, x, y)
+		
+		# Refresh window after input.
 		curses.panel.update_panels() # Must be called here.
 		windows["win_oracle"].refresh()
 					
@@ -289,7 +320,7 @@ def write_text(stdscr):
 	windows["win_text_main"].move(init_x, init_y)
 	
 	# Render text initially (from loaded byffer page).
-	render_buffer(windows["win_text_main"], init_x, init_y, max_x, max_y, x, y)
+	render_buffer(buffer, windows["win_text_main"], init_x, init_y, max_x, max_y, x, y)
 	
 	# Refresh window after input.
 	curses.panel.update_panels() # Must be called here.
@@ -384,7 +415,7 @@ def write_text(stdscr):
 		####################
 		
 		# Render text within the loop as it is edited.
-		render_buffer(windows["win_text_main"], init_x, init_y, max_x, max_y, x, y)
+		render_buffer(buffer, windows["win_text_main"], init_x, init_y, max_x, max_y, x, y)
 		
 		# Refresh window after input.
 		curses.panel.update_panels() # Must be called here.
@@ -646,7 +677,7 @@ def main(stdscr):
 		# Read user input. Input is made non-blocking for future
 		# animation implementations.
 		stdscr.timeout(anim_delay)
-		key = stdscr.getch()
+		key = stdscr.get_wch()
 		
 		# Process input.
 		# Mouse clicks.
@@ -658,7 +689,7 @@ def main(stdscr):
 		####################
 					
 		# Process keys.
-		if key == ord('q'):
+		if key == 'q':
 			quit()
 		####################
 		
